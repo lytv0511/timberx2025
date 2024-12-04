@@ -32,12 +32,14 @@ import com.acmerobotics.roadrunner.ftc.PositionVelocityPair;
 import com.acmerobotics.roadrunner.ftc.RawEncoder;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
@@ -106,7 +108,11 @@ public final class MecanumDrive {
     public final AccelConstraint defaultAccelConstraint =
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
-    public final DcMotorEx leftFront, leftBack, rightBack, rightFront;
+    public final DcMotorEx leftFront, leftBack, rightBack, rightFront, linearLeft, linearRight, armMotor;
+
+    //public final servo servoOne, servoTwo, servoThree;
+
+    public final CRServo intakeServo, trayTiltServo;
 
     public final VoltageSensor voltageSensor;
 
@@ -115,12 +121,16 @@ public final class MecanumDrive {
     public final Localizer localizer;
     public Pose2d pose;
 
+    private ElapsedTime timer = new ElapsedTime();
+
     private final LinkedList<Pose2d> poseHistory = new LinkedList<>();
 
     private final DownsampledWriter estimatedPoseWriter = new DownsampledWriter("ESTIMATED_POSE", 50_000_000);
     private final DownsampledWriter targetPoseWriter = new DownsampledWriter("TARGET_POSE", 50_000_000);
     private final DownsampledWriter driveCommandWriter = new DownsampledWriter("DRIVE_COMMAND", 50_000_000);
     private final DownsampledWriter mecanumCommandWriter = new DownsampledWriter("MECANUM_COMMAND", 50_000_000);
+    private final int MAX_POSITION_TICKS = convertAngleToTicks(Math.PI / 2); // Max angle π/2
+    private final int MIN_POSITION_TICKS = convertAngleToTicks(2 * Math.PI); // Min angle 2π
 
     public class DriveLocalizer implements Localizer {
         public final Encoder leftFront, leftBack, rightBack, rightFront;
@@ -148,6 +158,7 @@ public final class MecanumDrive {
             PositionVelocityPair leftBackPosVel = leftBack.getPositionAndVelocity();
             PositionVelocityPair rightBackPosVel = rightBack.getPositionAndVelocity();
             PositionVelocityPair rightFrontPosVel = rightFront.getPositionAndVelocity();
+
 
             YawPitchRollAngles angles = imu.getRobotYawPitchRollAngles();
 
@@ -207,6 +218,10 @@ public final class MecanumDrive {
     }
 
     public MecanumDrive(HardwareMap hardwareMap, Pose2d pose) {
+
+//        armMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+//        armMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
         this.pose = pose;
 
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
@@ -221,11 +236,19 @@ public final class MecanumDrive {
         leftBack = hardwareMap.get(DcMotorEx.class, "leftBack");
         rightBack = hardwareMap.get(DcMotorEx.class, "rightBack");
         rightFront = hardwareMap.get(DcMotorEx.class, "rightFront");
+        armMotor = hardwareMap.get(DcMotorEx.class, "armMotor");
+        linearLeft = hardwareMap.get(DcMotorEx.class, "linearLeft");
+        linearRight = hardwareMap.get(DcMotorEx.class, "linearRight");
+        intakeServo = hardwareMap.get(CRServo.class, "intakeServo");
+        trayTiltServo = hardwareMap.get(CRServo.class, "trayTiltServo");
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        linearLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        linearRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
 
         // TODO: reverse motor directions if needed
         //   leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -293,6 +316,8 @@ public final class MecanumDrive {
                 leftBack.setPower(0);
                 rightBack.setPower(0);
                 rightFront.setPower(0);
+                linearLeft.setPower(0);
+                linearRight.setPower(0);
 
                 return false;
             }
@@ -486,4 +511,59 @@ public final class MecanumDrive {
                 defaultVelConstraint, defaultAccelConstraint
         );
     }
+
+    public void tiltTray(double tiltSpeed, long tiltDurationMs) {
+        // Tilt the tray forward
+        trayTiltServo.setPower(tiltSpeed);
+        timer.reset();
+        while (timer.milliseconds() < tiltDurationMs) {
+            // Wait for the tilt duration
+        }
+
+        // Stop the servo briefly to hold position
+        trayTiltServo.setPower(0);
+        timer.reset();
+        while (timer.milliseconds() < 1000) {
+            // Wait for 1 second
+        }
+
+        // Return the tray to its original position
+        trayTiltServo.setPower(-tiltSpeed);
+        timer.reset();
+        while (timer.milliseconds() < tiltDurationMs) {
+            // Wait for the tilt duration
+        }
+
+        // Stop the servo
+        trayTiltServo.setPower(0);
+    }
+
+    public void linearMove(double inputSpeed){
+        linearLeft.setPower(inputSpeed);
+        linearRight.setPower(-inputSpeed);
+    }
+
+    public void intakeMove(double inputSpeed){
+        intakeServo.setPower(inputSpeed);
+    }
+
+    public void controlArm(double stickInput) {
+        int currentPosition = armMotor.getCurrentPosition();
+
+        if (stickInput > 0.2 && currentPosition < MAX_POSITION_TICKS) {
+            armMotor.setPower(stickInput); // Move up
+        } else if (stickInput < -0.2 && currentPosition > MIN_POSITION_TICKS) {
+            armMotor.setPower(stickInput); // Move down
+        } else {
+            armMotor.setPower(0); // Stop
+        }
+    }
+
+    private int convertAngleToTicks(double angle) {
+        final double TICKS_PER_REVOLUTION = 1440; // Example value
+        final double GEAR_RATIO = 1.0; // Adjust for gearing
+        final double ARM_ROTATION_PER_RADIAN = 1.0; // Adjust based on arm mechanics
+        return (int) (angle * TICKS_PER_REVOLUTION * GEAR_RATIO * ARM_ROTATION_PER_RADIAN / (2 * Math.PI));
+    }
+
 }
