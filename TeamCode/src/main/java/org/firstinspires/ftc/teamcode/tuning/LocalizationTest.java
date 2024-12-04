@@ -81,7 +81,7 @@ public class LocalizationTest extends LinearOpMode {
                     drive.intakeMove(gamepad1.right_trigger);
                     while (gamepad1.right_trigger > 0.0) {
                         // Wait while the trigger is held
-                    }
+                    }/**/
                     drive.intakeMove(0);
                 }
                 if (gamepad1.left_trigger > 0.9) {
