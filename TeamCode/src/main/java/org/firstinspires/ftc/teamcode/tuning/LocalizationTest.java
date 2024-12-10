@@ -54,10 +54,10 @@ public class LocalizationTest extends LinearOpMode {
 
                 // Handle left bumper functionality
                 if (leftBumperHeld) {
-                    while (gamepad1.left_stick_y > 0.2) {
+                    while (gamepad1.left_stick_y > 0) {
                         drive.linearMove(gamepad1.right_stick_y);
                     }
-                    while (gamepad1.left_stick_y < -0.2) {
+                    while (gamepad1.left_stick_y < 0) {
                         drive.linearMove(-gamepad1.right_stick_y);
                     }
                     drive.linearMove(0);  // Ensure stop after bumper release
@@ -67,9 +67,9 @@ public class LocalizationTest extends LinearOpMode {
                 if (rightBumperHeld) {
                     double stickInput = gamepad1.left_stick_y;
 
-                    if (stickInput > 0.2) {
+                    if (stickInput > 0) {
                         drive.controlArm(stickInput); // Move the arm up
-                    } else if (stickInput < -0.2) {
+                    } else if (stickInput < 0) {
                         drive.controlArm(stickInput); // Move the arm down
                     } else {
                         drive.controlArm(0); // Stop the arm
