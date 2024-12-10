@@ -13,6 +13,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import org.openftc.easyopencv.OpenCvCamera;
@@ -25,53 +26,98 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+@SuppressWarnings("unused")
 @Autonomous(name = "Auto Block Collector")
 public class OpenCV extends LinearOpMode {
     private MecanumDrive drive;
     private OpenCvCamera camera;
+    private BlockDetectionPipeline pipeline;
     private AprilTagProcessor aprilTag;
     private static final int CAMERA_WIDTH = 640;
     private static final int CAMERA_HEIGHT = 360;
-
-    double cX = 0, cY = 0, width = 0;
     private static final double PICKUP_DISTANCE = 8.0; // inches
-    private ElapsedTime timer = new ElapsedTime();
+    private final ElapsedTime timer = new ElapsedTime();
+    private RobotState currentState;
+    private double targetX, targetY;
+
+    public enum RobotState {
+        WANDER,
+        APPROACH_BLOCK,
+        PICKUP,
+        RETURN_TO_START,
+        SCORE
+    }
 
     @Override
     public void runOpMode() {
-        // Initialize RoadRunner drive
-        drive = new MecanumDrive(hardwareMap, new Pose2d(0, 0, 0));
-
-        // Initialize camera and vision
+        // Initialize
         initVision();
+        drive = new MecanumDrive(hardwareMap, new Pose2d(0, 0, 0));
+        currentState = RobotState.WANDER;
 
         waitForStart();
+        timer.reset();
 
         while (opModeIsActive()) {
-            // Update robot localization
             drive.updatePoseEstimate();
+            BlockDetectionResult detection = pipeline.getLatestResult();
 
-            // Scan for blocks
-            BlockDetectionResult detection = processFrame();
+            switch (currentState) {
+                case WANDER:
+                    executeWanderPattern();
+                    if (detection != null && detection.isBlockDetected) {
+                        currentState = RobotState.APPROACH_BLOCK;
+                        timer.reset();
+                    }
+                    break;
 
-            if (detection.isBlockDetected) {
-                if (detection.blockType == BlockType.YELLOW || detection.blockType == BlockType.BLUE) {
-                    // Navigate to block
-                    navigateToBlock(detection);
+                case APPROACH_BLOCK:
+                    if (detection != null && detection.isBlockDetected) {
+                        navigateToBlock(detection);
+                        if (isAtPickupPosition()) {
+                            currentState = RobotState.PICKUP;
+                            timer.reset();
+                        }
+                    } else {
+                        currentState = RobotState.WANDER;
+                    }
+                    break;
 
-                    // Pickup sequence
+                case PICKUP:
                     executePickup();
+                    if (isPickupComplete()) {
+                        currentState = RobotState.RETURN_TO_START;
+                        timer.reset();
+                    }
+                    break;
 
-                    // Return to starting position using AprilTag
-                    returnToStart();
+                case RETURN_TO_START:
+                    AprilTagDetection tag = getVisibleAprilTag();
+                    if (tag != null) {
+                        returnToStart();
+                        if (isAtStartPosition()) {
+                            currentState = RobotState.SCORE;
+                            timer.reset();
+                        }
+                    }
+                    break;
 
-                    // Score sequence
+                case SCORE:
                     executeScoring();
-                }
-            } else {
-                // Wander pattern using RoadRunner
-                executeWanderPattern();
+                    if (isScoringComplete()) {
+                        currentState = RobotState.WANDER;
+                        timer.reset();
+                    }
+                    break;
             }
+
+            telemetry.addData("State", currentState);
+            telemetry.addData("Block Detected", detection != null && detection.isBlockDetected);
+            telemetry.addData("Block Type", detection != null ? detection.blockType : "None");
+            telemetry.addData("Timer", "%.1f", timer.seconds());
+            telemetry.update();
+
+            sleep(10);
         }
     }
 
@@ -82,7 +128,8 @@ public class OpenCV extends LinearOpMode {
         camera = OpenCvCameraFactory.getInstance().createWebcam(
                 hardwareMap.get(WebcamName.class, "Webcam 1"), cameraMonitorViewId);
 
-        camera.setPipeline(new BlockDetectionPipeline());
+        pipeline = new BlockDetectionPipeline();
+        camera.setPipeline(pipeline);
 
         aprilTag = new AprilTagProcessor.Builder()
                 .setDrawAxes(true)
@@ -117,6 +164,8 @@ public class OpenCV extends LinearOpMode {
         );
 
         for (Vector2d point : searchPoints) {
+            if (!opModeIsActive() || timer.seconds() >= 30) break;
+
             drive.actionBuilder(drive.pose)
                     .splineTo(point, Math.atan2(point.y, point.x))
                     .waitSeconds(1)
@@ -125,99 +174,137 @@ public class OpenCV extends LinearOpMode {
     }
 
     private void executePickup() {
-        // Arm down
         drive.controlArm(-0.5);
         sleep(1000);
-
-        // Activate intake
         drive.intakeMove(1.0);
         sleep(1500);
-
-        // Arm up
         drive.controlArm(0.5);
         sleep(1000);
-
-        // Stop intake
         drive.intakeMove(0);
     }
 
     private void executeScoring() {
-        // Extend linear slides
         drive.linearMove(1.0);
         sleep(2000);
-
-        // Tilt tray to score
         drive.tiltTray(1.0, 500);
-
-        // Retract slides
         drive.linearMove(-1.0);
         sleep(2000);
         drive.linearMove(0);
     }
 
     private void navigateToBlock(BlockDetectionResult detection) {
-        // Use RoadRunner to navigate to block position
+        targetX = detection.x;
+        targetY = detection.y;
+
         drive.actionBuilder(drive.pose)
-                .splineTo(new Vector2d(detection.x, detection.y), detection.heading)
+                .splineTo(new Vector2d(targetX, targetY), detection.heading)
                 .build();
     }
 
     private void returnToStart() {
-        // Use AprilTag to locate and navigate back to starting position
-        AprilTagDetection tag = getVisibleAprilTag();
-        if (tag != null) {
-            drive.actionBuilder(drive.pose)
-                    .splineTo(new Vector2d(0, 0), 0)
-                    .build();
-        }
+        drive.actionBuilder(drive.pose)
+                .splineTo(new Vector2d(0, 0), 0)
+                .build();
+    }
+
+    private boolean isAtPickupPosition() {
+        return Math.abs(drive.pose.position.x - targetX) < 2.0 &&
+                Math.abs(drive.pose.position.y - targetY) < 2.0;
+    }
+
+    private boolean isPickupComplete() {
+        return timer.seconds() > 3.0;
+    }
+
+    private boolean isAtStartPosition() {
+        return Math.abs(drive.pose.position.x) < 2.0 &&
+                Math.abs(drive.pose.position.y) < 2.0;
+    }
+
+    private boolean isScoringComplete() {
+        return timer.seconds() > 4.0;
+    }
+
+    private AprilTagDetection getVisibleAprilTag() {
+        List<AprilTagDetection> detections = aprilTag.getDetections();
+        return !detections.isEmpty() ? detections.get(0) : null;
     }
 
     class BlockDetectionPipeline extends OpenCvPipeline {
+        private BlockDetectionResult latestResult = null;
+        private static final double MIN_CONTOUR_AREA = 1000;
+
         @Override
         public Mat processFrame(Mat input) {
-            // Color detection for Red, Yellow, Blue
             Mat hsvFrame = new Mat();
             Imgproc.cvtColor(input, hsvFrame, Imgproc.COLOR_BGR2HSV);
 
-            // HSV ranges for each color
             Scalar[] lowerBounds = {
-                    new Scalar(0, 100, 100),   // Red
                     new Scalar(20, 100, 100),  // Yellow
                     new Scalar(100, 100, 100)  // Blue
             };
             Scalar[] upperBounds = {
-                    new Scalar(10, 255, 255),  // Red
                     new Scalar(30, 255, 255),  // Yellow
                     new Scalar(130, 255, 255)  // Blue
             };
 
-            // Process each color mask
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 2; i++) {
                 Mat colorMask = new Mat();
                 Core.inRange(hsvFrame, lowerBounds[i], upperBounds[i], colorMask);
 
-                // Find contours and process largest
                 List<MatOfPoint> contours = new ArrayList<>();
-                Imgproc.findContours(colorMask, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+                Mat hierarchy = new Mat();
+                Imgproc.findContours(colorMask, contours, hierarchy,
+                        Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 
-                if (!contours.isEmpty()) {
-                    MatOfPoint largest = findLargestContour(contours);
-                    // Process contour and update detection data
-                    processContour(largest, i);
+                MatOfPoint largestContour = null;
+                double maxArea = MIN_CONTOUR_AREA;
+
+                for (MatOfPoint contour : contours) {
+                    double area = Imgproc.contourArea(contour);
+                    if (area > maxArea) {
+                        maxArea = area;
+                        largestContour = contour;
+                    }
                 }
+
+                if (largestContour != null) {
+                    Moments moments = Imgproc.moments(largestContour);
+                    double cX = moments.get_m10() / moments.get_m00();
+                    double cY = moments.get_m01() / moments.get_m00();
+
+                    BlockType type = (i == 0) ? BlockType.YELLOW : BlockType.BLUE;
+
+                    latestResult = new BlockDetectionResult(
+                            true,
+                            type,
+                            cX,
+                            cY,
+                            Math.atan2(cY - CAMERA_HEIGHT/2.0, cX - CAMERA_WIDTH/2.0)
+                    );
+
+                    Imgproc.circle(input, new Point(cX, cY), 5, new Scalar(0,255,0), -1);
+                    Imgproc.drawContours(input, Arrays.asList(largestContour), -1, new Scalar(255,0,0), 2);
+                }
+
+                colorMask.release();
+                hierarchy.release();
             }
 
+            hsvFrame.release();
             return input;
+        }
+
+        public BlockDetectionResult getLatestResult() {
+            return latestResult;
         }
     }
 
-    // Add enum for block types
     enum BlockType {
-        RED, YELLOW, BLUE
+        YELLOW, BLUE
     }
 
-    // Add detection result class
-    class BlockDetectionResult {
+    static class BlockDetectionResult {
         public boolean isBlockDetected;
         public BlockType blockType;
         public double x;
@@ -231,42 +318,5 @@ public class OpenCV extends LinearOpMode {
             this.y = y;
             this.heading = heading;
         }
-    }
-
-    // Add helper methods to BlockDetectionPipeline
-    private MatOfPoint findLargestContour(List<MatOfPoint> contours) {
-        double maxArea = 0;
-        MatOfPoint largestContour = null;
-        for (MatOfPoint contour : contours) {
-            double area = Imgproc.contourArea(contour);
-            if (area > maxArea) {
-                maxArea = area;
-                largestContour = contour;
-            }
-        }
-        return largestContour;
-    }
-
-    private void processContour(MatOfPoint contour, int colorIndex) {
-        if (contour != null) {
-            Moments moments = Imgproc.moments(contour);
-            cX = moments.get_m10() / moments.get_m00();
-            cY = moments.get_m01() / moments.get_m00();
-            width = Imgproc.boundingRect(contour).width;
-        }
-    }
-
-    // Add method to get visible AprilTag
-    private AprilTagDetection getVisibleAprilTag() {
-        List<AprilTagDetection> detections = aprilTag.getDetections();
-        return !detections.isEmpty() ? detections.get(0) : null;
-    }
-
-    // Add method to process camera frame
-    private BlockDetectionResult processFrame() {
-        // Process the latest frame from camera
-        BlockDetectionResult result = new BlockDetectionResult(false, null, 0, 0, 0);
-        // Add processing logic here
-        return result;
     }
 }

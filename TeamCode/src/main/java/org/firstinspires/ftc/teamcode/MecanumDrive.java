@@ -112,7 +112,7 @@ public final class MecanumDrive {
 
     //public final servo servoOne, servoTwo, servoThree;
 
-    public final CRServo intakeServo, trayTiltServo;
+    public final CRServo intakeServo, trayTiltServoRight, trayTiltServoLeft;
 
     public final VoltageSensor voltageSensor;
 
@@ -240,7 +240,8 @@ public final class MecanumDrive {
         linearLeft = hardwareMap.get(DcMotorEx.class, "linearLeft");
         linearRight = hardwareMap.get(DcMotorEx.class, "linearRight");
         intakeServo = hardwareMap.get(CRServo.class, "intakeServo");
-        trayTiltServo = hardwareMap.get(CRServo.class, "trayTiltServo");
+        trayTiltServoRight = hardwareMap.get(CRServo.class, "trayTiltServoRight");
+        trayTiltServoLeft = hardwareMap.get(CRServo.class, "trayTiltServoLeft");
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -514,28 +515,32 @@ public final class MecanumDrive {
 
     public void tiltTray(double tiltSpeed, long tiltDurationMs) {
         // Tilt the tray forward
-        trayTiltServo.setPower(tiltSpeed);
+        trayTiltServoRight.setPower(tiltSpeed);
+        trayTiltServoLeft.setPower(tiltSpeed);
         timer.reset();
         while (timer.milliseconds() < tiltDurationMs) {
             // Wait for the tilt duration
         }
 
         // Stop the servo briefly to hold position
-        trayTiltServo.setPower(0);
+        trayTiltServoRight.setPower(0);
+        trayTiltServoLeft.setPower(0);
         timer.reset();
         while (timer.milliseconds() < 1000) {
             // Wait for 1 second
         }
 
         // Return the tray to its original position
-        trayTiltServo.setPower(-tiltSpeed);
+        trayTiltServoRight.setPower(-tiltSpeed);
+        trayTiltServoLeft.setPower(-tiltSpeed);
         timer.reset();
         while (timer.milliseconds() < tiltDurationMs) {
             // Wait for the tilt duration
         }
 
         // Stop the servo
-        trayTiltServo.setPower(0);
+        trayTiltServoRight.setPower(0);
+        trayTiltServoLeft.setPower(0);
     }
 
     public void linearMove(double inputSpeed){
