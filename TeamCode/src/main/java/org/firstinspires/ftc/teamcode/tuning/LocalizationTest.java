@@ -68,9 +68,9 @@ public class LocalizationTest extends LinearOpMode {
                     double stickInput = gamepad1.left_stick_y;
 
                     if (stickInput > 0) {
-                        drive.controlArm(10); // Move the arm up
+                        drive.controlArm(-10); // Move the arm up
                     } else if (stickInput < 0) {
-                        drive.controlArm(-10); // Move the arm down
+                        drive.controlArm(10); // Move the arm down
                     } else {
                         drive.controlArm(0); // Stop the arm
                     }
