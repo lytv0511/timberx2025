@@ -38,6 +38,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -112,7 +113,8 @@ public final class MecanumDrive {
 
     //public final servo servoOne, servoTwo, servoThree;
 
-    public final CRServo intakeServo, trayTiltServoRight, trayTiltServoLeft;
+    public final CRServo intakeServo;
+    public final Servo trayTiltServoRight, trayTiltServoLeft;
 
     public final VoltageSensor voltageSensor;
 
@@ -240,8 +242,8 @@ public final class MecanumDrive {
         linearLeft = hardwareMap.get(DcMotorEx.class, "linearLeft");
         linearRight = hardwareMap.get(DcMotorEx.class, "linearRight");
         intakeServo = hardwareMap.get(CRServo.class, "intakeServo");
-        trayTiltServoRight = hardwareMap.get(CRServo.class, "trayTiltServoRight");
-        trayTiltServoLeft = hardwareMap.get(CRServo.class, "trayTiltServoLeft");
+        trayTiltServoRight = hardwareMap.get(Servo.class, "trayTiltServoRight");
+        trayTiltServoLeft = hardwareMap.get(Servo.class, "trayTiltServoLeft");
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -515,32 +517,32 @@ public final class MecanumDrive {
 
     public void tiltTray(double tiltSpeed, long tiltDurationMs) {
         // Tilt the tray forward
-        trayTiltServoRight.setPower(tiltSpeed);
-        trayTiltServoLeft.setPower(tiltSpeed);
+        trayTiltServoRight.setPosition(tiltSpeed);
+        trayTiltServoLeft.setPosition(tiltSpeed);
         timer.reset();
         while (timer.milliseconds() < tiltDurationMs) {
             // Wait for the tilt duration
         }
 
         // Stop the servo briefly to hold position
-        trayTiltServoRight.setPower(0);
-        trayTiltServoLeft.setPower(0);
+        trayTiltServoRight.setPosition(0);
+        trayTiltServoLeft.setPosition(0);
         timer.reset();
         while (timer.milliseconds() < 1000) {
             // Wait for 1 second
         }
 
         // Return the tray to its original position
-        trayTiltServoRight.setPower(-tiltSpeed);
-        trayTiltServoLeft.setPower(-tiltSpeed);
+        trayTiltServoRight.setPosition(-tiltSpeed);
+        trayTiltServoLeft.setPosition(-tiltSpeed);
         timer.reset();
         while (timer.milliseconds() < tiltDurationMs) {
             // Wait for the tilt duration
         }
 
         // Stop the servo
-        trayTiltServoRight.setPower(0);
-        trayTiltServoLeft.setPower(0);
+        trayTiltServoRight.setPosition(0);
+        trayTiltServoLeft.setPosition(0);
     }
 
     public void linearMove(double inputSpeed){
