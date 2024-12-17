@@ -174,11 +174,11 @@ public class OpenCV extends LinearOpMode {
     }
 
     private void executePickup() {
-        drive.controlArm(-0.5);
+        drive.controlArm(-0.5, 0);
         sleep(1000);
         drive.intakeMove(1.0);
         sleep(1500);
-        drive.controlArm(0.5);
+        drive.controlArm(0.5, 0);
         sleep(1000);
         drive.intakeMove(0);
     }

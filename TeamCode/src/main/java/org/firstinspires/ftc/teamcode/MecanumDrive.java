@@ -48,6 +48,7 @@ import org.firstinspires.ftc.teamcode.messages.DriveCommandMessage;
 import org.firstinspires.ftc.teamcode.messages.MecanumCommandMessage;
 import org.firstinspires.ftc.teamcode.messages.MecanumLocalizerInputsMessage;
 import org.firstinspires.ftc.teamcode.messages.PoseMessage;
+import org.firstinspires.ftc.teamcode.tuning.LocalizationTest;
 
 import java.lang.Math;
 import java.util.Arrays;
@@ -515,55 +516,41 @@ public final class MecanumDrive {
         );
     }
 
-    public void tiltTray(double tiltSpeed, long tiltDurationMs) {
-        // Tilt the tray forward
-        trayTiltServoRight.setPosition(tiltSpeed);
-        trayTiltServoLeft.setPosition(tiltSpeed);
+    public void tiltTray(double tiltMagnitude, long tiltDurationMs) {
+        trayTiltServoLeft.setDirection(Servo.Direction.REVERSE);
+        double currentPosition = 0.0;
+        trayTiltServoLeft.setPosition(tiltMagnitude);
         timer.reset();
         while (timer.milliseconds() < tiltDurationMs) {
             // Wait for the tilt duration
         }
-
-        // Stop the servo briefly to hold position
-        trayTiltServoRight.setPosition(0);
-        trayTiltServoLeft.setPosition(0);
-        timer.reset();
-        while (timer.milliseconds() < 1000) {
-            // Wait for 1 second
-        }
-
-        // Return the tray to its original position
-        trayTiltServoRight.setPosition(-tiltSpeed);
-        trayTiltServoLeft.setPosition(-tiltSpeed);
-        timer.reset();
-        while (timer.milliseconds() < tiltDurationMs) {
-            // Wait for the tilt duration
-        }
-
-        // Stop the servo
-        trayTiltServoRight.setPosition(0);
-        trayTiltServoLeft.setPosition(0);
+        trayTiltServoLeft.setPosition(currentPosition);
     }
 
     public void linearMove(double inputSpeed){
-        linearLeft.setPower(inputSpeed);
-        linearRight.setPower(-inputSpeed);
+        int llPos= linearLeft.getCurrentPosition();
+        int lrPos = linearRight.getCurrentPosition();
+        if (llPos < 100 && lrPos < 100) {
+            linearLeft.setPower(inputSpeed);
+            linearRight.setPower(-inputSpeed);
+        }
     }
 
     public void intakeMove(double inputSpeed){
         intakeServo.setPower(inputSpeed);
     }
 
-    public void controlArm(double stickInput) {
-        int currentPosition = armMotor.getCurrentPosition();
+    public void controlArm(double stickInput, int mode) {
 
-        if (stickInput > 0.2 && currentPosition < MAX_POSITION_TICKS) {
-            armMotor.setPower(stickInput); // Move up
-        } else if (stickInput < -0.2 && currentPosition > MIN_POSITION_TICKS) {
-            armMotor.setPower(stickInput); // Move down
-        } else {
-            armMotor.setPower(0); // Stop
+        if (mode == 0) {
+            armMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
+        if (mode == 1) {
+            armMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        }
+        armMotor.getCurrentPosition();
+        armMotor.setPower(-stickInput);
+
     }
 
     private int convertAngleToTicks(double angle) {
