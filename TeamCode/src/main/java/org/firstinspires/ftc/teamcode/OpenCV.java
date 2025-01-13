@@ -176,18 +176,17 @@ public class OpenCV extends LinearOpMode {
     private void executePickup() {
         drive.controlArm(-0.5, 0);
         sleep(1000);
-        drive.intakeMove(1.0);
+        drive.clawClamp(1.0);
         sleep(1500);
         drive.controlArm(0.5, 0);
         sleep(1000);
-        drive.intakeMove(0);
+        drive.clawClamp(0);
     }
 
     private void executeScoring() {
-        drive.linearMove(1.0);
+        drive.linearMove(1);
         sleep(2000);
-        drive.tiltTray(1.0, 500);
-        drive.linearMove(-1.0);
+        drive.linearMove(-1);
         sleep(2000);
         drive.linearMove(0);
     }

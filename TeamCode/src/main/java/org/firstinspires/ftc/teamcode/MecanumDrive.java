@@ -56,7 +56,9 @@ import java.util.LinkedList;
 import java.util.List;
 
 @Config
-public final class MecanumDrive {
+public final class  MecanumDrive {
+    private DcMotorEx linearLeft1;
+
     public static class Params {
         // IMU orientation
         // TODO: fill in these values based on
@@ -78,7 +80,7 @@ public final class MecanumDrive {
 
         // path profile parameters (in inches)
         public double maxWheelVel = 50;
-        public double minProfileAccel = -30;
+        public double minProfileAccel = -30;/**/
         public double maxProfileAccel = 50;
 
         // turn profile parameters (in radians)
@@ -110,12 +112,11 @@ public final class MecanumDrive {
     public final AccelConstraint defaultAccelConstraint =
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
-    public final DcMotorEx leftFront, leftBack, rightBack, rightFront, linearLeft, linearRight, armMotor;
+    public final DcMotorEx leftFront, leftBack, rightBack, rightFront, linearLeft, linearRight, clawArmServo;
 
     //public final servo servoOne, servoTwo, servoThree;
 
-    public final CRServo intakeServo;
-    public final Servo trayTiltServoRight, trayTiltServoLeft;
+    public final Servo clawServo;
 
     public final VoltageSensor voltageSensor;
 
@@ -222,8 +223,8 @@ public final class MecanumDrive {
 
     public MecanumDrive(HardwareMap hardwareMap, Pose2d pose) {
 
-//        armMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-//        armMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+//        clawArmServo.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+//        clawArmServo.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         this.pose = pose;
 
@@ -235,16 +236,14 @@ public final class MecanumDrive {
 
         // TODO: make sure your config has motors with these names (or change them)
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
-        leftFront = hardwareMap.get(DcMotorEx.class, "leftFront");
-        leftBack = hardwareMap.get(DcMotorEx.class, "leftBack");
-        rightBack = hardwareMap.get(DcMotorEx.class, "rightBack");
-        rightFront = hardwareMap.get(DcMotorEx.class, "rightFront");
-        armMotor = hardwareMap.get(DcMotorEx.class, "armMotor");
-        linearLeft = hardwareMap.get(DcMotorEx.class, "linearLeft");
-        linearRight = hardwareMap.get(DcMotorEx.class, "linearRight");
-        intakeServo = hardwareMap.get(CRServo.class, "intakeServo");
-        trayTiltServoRight = hardwareMap.get(Servo.class, "trayTiltServoRight");
-        trayTiltServoLeft = hardwareMap.get(Servo.class, "trayTiltServoLeft");
+        leftFront = hardwareMap.get(DcMotorEx.class, "leftFront"); // CHM0
+        rightBack = hardwareMap.get(DcMotorEx.class, "rightBack"); // CHM1
+        rightFront = hardwareMap.get(DcMotorEx.class, "rightFront"); // CHM2
+        leftBack = hardwareMap.get(DcMotorEx.class, "leftBack"); // CHM3
+        linearLeft = hardwareMap.get(DcMotorEx.class, "linearLeft"); // EHM0
+        linearRight = hardwareMap.get(DcMotorEx.class, "linearRight"); // EHM1
+        clawServo = hardwareMap.get(Servo.class, "clawServo"); // CHS0
+        clawArmServo = hardwareMap.get(DcMotorEx.class, "clawArmServo"); // CHS1
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -272,7 +271,7 @@ public final class MecanumDrive {
     public void setDrivePowers(PoseVelocity2d powers) {
         MecanumKinematics.WheelVelocities<Time> wheelVels = new MecanumKinematics(1).inverse(
                 PoseVelocity2dDual.constant(powers, 1));
-
+ 
         double maxPowerMag = 1;
         for (DualNum<Time> power : wheelVels.all()) {
             maxPowerMag = Math.max(maxPowerMag, power.value());
@@ -516,40 +515,51 @@ public final class MecanumDrive {
         );
     }
 
-    public void tiltTray(double tiltMagnitude, long tiltDurationMs) {
-        trayTiltServoLeft.setDirection(Servo.Direction.REVERSE);
-        double currentPosition = 0.0;
-        trayTiltServoLeft.setPosition(tiltMagnitude);
-        timer.reset();
-        while (timer.milliseconds() < tiltDurationMs) {
-            // Wait for the tilt duration
+//    public void linearMove(double inputSpeed){
+//        int llPos= linearLeft.getCurrentPosition();
+//        int lrPos = linearRight.getCurrentPosition();
+//        if (llPos < 100 && lrPos < 100) {
+//            linearLeft.setPower(inputSpeed);
+//            linearRight.setPower(-inputSpeed);
+//        }
+//    }
+
+    public void linearMove(int verticalSlideExtendPos) {
+        // Set target position and run to it
+        linearLeft.setTargetPosition(verticalSlideExtendPos);
+        linearLeft.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        linearLeft.setPower(1);
+
+        linearRight.setTargetPosition(verticalSlideExtendPos);
+        linearRight.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        linearRight.setPower(1);
+
+        // Wait for the motors to reach their target (optional)
+        while (linearLeft.isBusy() || linearRight.isBusy()) {
+            // Optionally add telemetry or logic here
         }
-        trayTiltServoLeft.setPosition(currentPosition);
+
+        // Once the target is reached, apply a holding power
+        linearLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        linearRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        linearLeft.setPower(0.1); // Small power to hold position
+        linearRight.setPower(0.1); // Small power to hold position
     }
 
-    public void linearMove(double inputSpeed){
-        int llPos= linearLeft.getCurrentPosition();
-        int lrPos = linearRight.getCurrentPosition();
-        if (llPos < 100 && lrPos < 100) {
-            linearLeft.setPower(inputSpeed);
-            linearRight.setPower(-inputSpeed);
-        }
-    }
-
-    public void intakeMove(double inputSpeed){
-        intakeServo.setPower(inputSpeed);
+    public void clawClamp(double inputSpeed) {
+        clawServo.setPosition(inputSpeed);
     }
 
     public void controlArm(double stickInput, int mode) {
 
         if (mode == 0) {
-            armMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            clawArmServo.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
         if (mode == 1) {
-            armMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            clawArmServo.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         }
-        armMotor.getCurrentPosition();
-        armMotor.setPower(-stickInput);
+        clawArmServo.getCurrentPosition();
+        clawArmServo.setPower(-stickInput);
 
     }
 

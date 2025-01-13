@@ -56,41 +56,31 @@ public class LocalizationTest extends LinearOpMode {
                 // Handle left bumper functionality
                 if (leftBumperHeld) {
                     while (gamepad1.left_stick_y > 0) {
-                        drive.linearMove(-gamepad1.left_stick_y);
+                        drive.linearMove(-10);
                     }
                     while (gamepad1.left_stick_y < 0) {
-                        drive.linearMove(-gamepad1.left_stick_y);
+                        drive.linearMove(-10);
                     }
                     drive.linearMove(0);
                 }
 
                 // Handle right bumper functionality
                 if (rightBumperHeld) {
-                        if (gamepad1.left_stick_y > 0) {
-                            drive.controlArm(gamepad1.left_stick_y/2, 0); // Move the arm up
-                        } else if (gamepad1.left_stick_y < 0) {
-                            drive.controlArm(gamepad1.left_stick_y/2, 0); // Move the arm down
-                        } else if (gamepad1.left_stick_y == 0) {
-                            drive.controlArm(0, 1);
-                        }
+                    if (gamepad1.left_stick_y > 0) {
+                        drive.controlArm(gamepad1.left_stick_y/2, 0); // Move the arm up
+                    } else if (gamepad1.left_stick_y < 0) {
+                        drive.controlArm(gamepad1.left_stick_y/2, 0); // Move the arm down
+                    } else if (gamepad1.left_stick_y == 0) {
+                        drive.controlArm(0, 1);
+                    }
                 }
 
-
-                // Trigger controls
-                if (gamepad1.right_trigger > 0.0) {
-                    drive.intakeMove(gamepad1.right_trigger);
-                    while (gamepad1.right_trigger > 0.0) {
-                        drive.intakeMove(100);
-                    }
-                    drive.intakeMove(0);
-                }
-                if (gamepad1.left_trigger > 0.9) {
-                    while (gamepad1.left_trigger > 0.9) {
-                        drive.tiltTray(0.1, 500);
-                    }
+                if (gamepad1.right_trigger > 0) {
+                    drive.clawClamp(10);
                 } else if (gamepad1.left_trigger == 0) {
-                    drive.tiltTray(0, 500);
+                    drive.clawClamp(0);
                 }
+
             }
         } else {
             throw new RuntimeException();
