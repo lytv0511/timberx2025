@@ -174,13 +174,13 @@ public class OpenCV extends LinearOpMode {
     }
 
     private void executePickup() {
-        drive.controlArm(-0.5, 0);
+        drive.clawAngle(-0.5);
         sleep(1000);
-        drive.clawClamp(1.0);
+        drive.clawClamp(1.0, 1);
         sleep(1500);
-        drive.controlArm(0.5, 0);
+        drive.clawAngle(0.5);
         sleep(1000);
-        drive.clawClamp(0);
+        drive.clawClamp(0, 1);
     }
 
     private void executeScoring() {

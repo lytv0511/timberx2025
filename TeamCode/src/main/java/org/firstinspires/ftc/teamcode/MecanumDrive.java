@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
+
 import androidx.annotation.NonNull;
 
 import com.acmerobotics.dashboard.canvas.Canvas;
@@ -80,7 +82,7 @@ public final class  MecanumDrive {
 
         // path profile parameters (in inches)
         public double maxWheelVel = 50;
-        public double minProfileAccel = -30;/**/
+        public double minProfileAccel = -30;
         public double maxProfileAccel = 50;
 
         // turn profile parameters (in radians)
@@ -112,11 +114,11 @@ public final class  MecanumDrive {
     public final AccelConstraint defaultAccelConstraint =
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
-    public final DcMotorEx leftFront, leftBack, rightBack, rightFront, linearLeft, linearRight, clawArmServo;
+    public final DcMotorEx leftFront, leftBack, rightBack, rightFront, linearLeft, linearRight;
 
     //public final servo servoOne, servoTwo, servoThree;
 
-    public final Servo clawServo;
+    public final Servo clawServo, clawArmServo;
 
     public final VoltageSensor voltageSensor;
 
@@ -223,9 +225,6 @@ public final class  MecanumDrive {
 
     public MecanumDrive(HardwareMap hardwareMap, Pose2d pose) {
 
-//        clawArmServo.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-//        clawArmServo.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
         this.pose = pose;
 
         LynxFirmware.throwIfModulesAreOutdated(hardwareMap);
@@ -243,7 +242,7 @@ public final class  MecanumDrive {
         linearLeft = hardwareMap.get(DcMotorEx.class, "linearLeft"); // EHM0
         linearRight = hardwareMap.get(DcMotorEx.class, "linearRight"); // EHM1
         clawServo = hardwareMap.get(Servo.class, "clawServo"); // CHS0
-        clawArmServo = hardwareMap.get(DcMotorEx.class, "clawArmServo"); // CHS1
+        clawArmServo = hardwareMap.get(Servo.class, "clawArmServo"); // CHS1
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -515,6 +514,7 @@ public final class  MecanumDrive {
         );
     }
 
+    // Old linear slides code
 //    public void linearMove(double inputSpeed){
 //        int llPos= linearLeft.getCurrentPosition();
 //        int lrPos = linearRight.getCurrentPosition();
@@ -524,6 +524,7 @@ public final class  MecanumDrive {
 //        }
 //    }
 
+    // linearLeft and linearRight function
     public void linearMove(int verticalSlideExtendPos) {
         // Set target position and run to it
         linearLeft.setTargetPosition(verticalSlideExtendPos);
@@ -534,33 +535,36 @@ public final class  MecanumDrive {
         linearRight.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         linearRight.setPower(1);
 
-        // Wait for the motors to reach their target (optional)
+        // Wait for the motors to reach their target
         while (linearLeft.isBusy() || linearRight.isBusy()) {
-            // Optionally add telemetry or logic here
+            // Potential telemetry or logic
         }
 
-        // Once the target is reached, apply a holding power
-        linearLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        linearRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        linearLeft.setPower(0.1); // Small power to hold position
-        linearRight.setPower(0.1); // Small power to hold position
+        // Holding power if needed
+//        linearLeft.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+//        linearRight.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+//        linearLeft.setPower(0.1); // Small power to hold position
+//        linearRight.setPower(0.1); // Small power to hold position
     }
 
-    public void clawClamp(double inputSpeed) {
-        clawServo.setPosition(inputSpeed);
-    }
-
-    public void controlArm(double stickInput, int mode) {
-
+    // clawServo function
+    public void clawClamp(double clawGearPosition, int mode) {
+        telemetry.addData("Claw position", clawServo.getPosition());
+        telemetry.update();
+        double clawPos = clawServo.getPosition();
         if (mode == 0) {
-            clawArmServo.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            clawServo.setPosition(clawPos + clawGearPosition);
+        } else if (mode == 1) {
+            clawServo.setPosition(clawGearPosition);
         }
-        if (mode == 1) {
-            clawArmServo.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        }
-        clawArmServo.getCurrentPosition();
-        clawArmServo.setPower(-stickInput);
+    }
 
+    // clawArmServo function
+    public void clawAngle(double angle) {
+        telemetry.addData("clawArm position", clawArmServo.getPosition());
+        telemetry.update();
+        double clawArmPos = clawArmServo.getPosition();
+        clawArmServo.setPosition(clawArmPos + angle);
     }
 
     private int convertAngleToTicks(double angle) {

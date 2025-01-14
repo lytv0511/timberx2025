@@ -53,32 +53,57 @@ public class LocalizationTest extends LinearOpMode {
                 Drawing.drawRobot(packet.fieldOverlay(), drive.pose);
                 FtcDashboard.getInstance().sendTelemetryPacket(packet);
 
-                // Handle left bumper functionality
-                if (leftBumperHeld) {
-                    while (gamepad1.left_stick_y > 0) {
-                        drive.linearMove(-10);
-                    }
-                    while (gamepad1.left_stick_y < 0) {
-                        drive.linearMove(-10);
-                    }
-                    drive.linearMove(0);
-                }
+                // linearLeft and linearRight controls
 
-                // Handle right bumper functionality
-                if (rightBumperHeld) {
-                    if (gamepad1.left_stick_y > 0) {
-                        drive.controlArm(gamepad1.left_stick_y/2, 0); // Move the arm up
-                    } else if (gamepad1.left_stick_y < 0) {
-                        drive.controlArm(gamepad1.left_stick_y/2, 0); // Move the arm down
-                    } else if (gamepad1.left_stick_y == 0) {
-                        drive.controlArm(0, 1);
-                    }
+                while (gamepad1.dpad_up) {
+                    drive.linearMove(10);
                 }
+                while (gamepad1.dpad_down) {
+                    drive.linearMove(-10);
+                }
+                drive.linearMove(0);
 
+//                if (leftBumperHeld) {
+//                    while (gamepad1.left_stick_y > 0) {
+//                        drive.linearMove(-10);
+//                    }
+//                    while (gamepad1.left_stick_y < 0) {
+//                        drive.linearMove(-10);
+//                    }
+//                    drive.linearMove(0);
+//                }
+//
+                // clawArmServo controls
+
+                while (gamepad1.dpad_right) {
+                    drive.clawAngle(10);
+                }
+                while (gamepad1.dpad_left) {
+                    drive.clawAngle(-10);
+                }
+                drive.clawAngle(0);
+
+//                if (rightBumperHeld) {
+//                    if (gamepad1.left_stick_y > 0) {
+//                        drive.clawAngle(gamepad1.left_stick_y/2); // Move the arm up
+//                    } else if (gamepad1.left_stick_y < 0) {
+//                        drive.clawAngle(gamepad1.left_stick_y/2); // Move the arm down
+//                    } else if (gamepad1.left_stick_y == 0) {
+//                        drive.clawAngle(0);
+//                    }
+//                }
+
+                // clawServo controls
                 if (gamepad1.right_trigger > 0) {
-                    drive.clawClamp(10);
+                    drive.clawClamp(10, 0);
                 } else if (gamepad1.left_trigger == 0) {
-                    drive.clawClamp(0);
+                    drive.clawClamp(0, 0);
+                }
+
+                if (gamepad1.a) {
+                    drive.clawClamp(10, 1);
+                } else if (gamepad1.b) {
+                    drive.clawClamp(-10, 1);
                 }
 
             }
