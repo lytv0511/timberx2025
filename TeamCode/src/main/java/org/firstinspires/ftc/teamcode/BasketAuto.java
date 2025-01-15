@@ -3,14 +3,27 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.Servo;
 
-@Autonomous(name = "BasketAuto", group = "Autonomous")
+@Autonomous(name = "AutoModeCode", group = "Autonomous")
 public class BasketAuto extends LinearOpMode {
     // Declare four motors
     private DcMotor leftFront;
     private DcMotor rightFront;
     private DcMotor leftBack;
     private DcMotor rightBack;
+
+    // Declare linear slide motors
+    private DcMotor linearLeft;
+    private DcMotor linearRight;
+
+    // Declare servo motors
+    private Servo clawServo;
+    private Servo clawArmServo;
+
+    // Correction factors
+    private static final double distanceCorrectionFactor = 1 / 0.9; // Distance correction factor
+    private static final double angleCorrectionFactor = 90.0 / 45.0; // Angle correction factor
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -19,6 +32,18 @@ public class BasketAuto extends LinearOpMode {
         rightFront = hardwareMap.get(DcMotor.class, "rightFront");
         leftBack = hardwareMap.get(DcMotor.class, "leftBack");
         rightBack = hardwareMap.get(DcMotor.class, "rightBack");
+        linearLeft = hardwareMap.get(DcMotor.class, "linearLeft");
+        linearRight = hardwareMap.get(DcMotor.class, "linearRight");
+        clawServo = hardwareMap.get(Servo.class, "clawServo");
+        clawArmServo = hardwareMap.get(Servo.class, "clawArmServo");
+
+        // Set motor directions
+        leftFront.setDirection(DcMotor.Direction.FORWARD);
+        rightFront.setDirection(DcMotor.Direction.REVERSE);
+        leftBack.setDirection(DcMotor.Direction.FORWARD);
+        rightBack.setDirection(DcMotor.Direction.REVERSE);
+        linearLeft.setDirection(DcMotor.Direction.FORWARD);
+        linearRight.setDirection(DcMotor.Direction.REVERSE);
 
         // Wait for the game to start
         telemetry.addData("Status", "Waiting for start command...");
@@ -28,60 +53,50 @@ public class BasketAuto extends LinearOpMode {
         if (opModeIsActive()) {
             // Autonomous logic
 
-            // Strafe right 12.5 cm
-            telemetry.addData("Step", "Strafing right 12.5 cm");
+            // Strafe right 10 cm
+            telemetry.addData("Step", "Strafing right 10 cm");
             telemetry.update();
-            driveStrafe(0.5, 12.5);
+            strafeRight(0.5, 10);
 
-            // Move forward 90 cm
-            telemetry.addData("Step", "Driving forward 90 cm");
+            // Wait for 5 seconds
+            telemetry.addData("Step", "Waiting for 5 seconds");
             telemetry.update();
-            driveForward(0.5, 90);
+            sleep(5000);
 
-            // Turn left 45 degrees in place
-            telemetry.addData("Step", "Turning left 45 degrees");
+            // Raise linear slide by 20 cm
+            telemetry.addData("Step", "Raising linear slide 20 cm");
             telemetry.update();
-            turnLeft(0.3, 45);
+            moveLinear(-0.5, 2000); // Assume 1 second raises 1 cm
 
-            // Move forward 21 cm
-            telemetry.addData("Step", "Driving forward 21 cm");
+            // Wait for 5 seconds
+            telemetry.addData("Step", "Waiting for 5 seconds");
             telemetry.update();
-            driveForward(0.5, 21);
+            sleep(5000);
 
-            // Draw first emoji
-            telemetry.addData("Step", "Drawing first emoji: :) ");
+            // Lower linear slide by 20 cm
+            telemetry.addData("Step", "Lowering linear slide 20 cm");
             telemetry.update();
-            sleep(2000);
+            moveLinear(0.5, 2000);
 
-            // Move backward 21 cm
-            telemetry.addData("Step", "Driving backward 21 cm");
+            // Turn right 90 degrees
+            telemetry.addData("Step", "Turning right 90 degrees");
             telemetry.update();
-            driveBackward(0.5, 21);
+            turnRight(0.3, 90);
 
-            // Turn right 135 degrees in place
-            telemetry.addData("Step", "Turning right 135 degrees");
+            // Wait for 5 seconds
+            telemetry.addData("Step", "Waiting for 5 seconds");
             telemetry.update();
-            turnRight(0.3, 135);
+            sleep(5000);
 
-            // Draw second emoji
-            telemetry.addData("Step", "Drawing second emoji: :D ");
+            // Drive forward 10 cm
+            telemetry.addData("Step", "Driving forward 10 cm");
             telemetry.update();
-            sleep(2000);
+            driveForward(0.5, 10);
 
-            // Turn left 135 degrees in place
-            telemetry.addData("Step", "Turning left 135 degrees");
+            // Drive backward 10 cm
+            telemetry.addData("Step", "Driving backward 10 cm");
             telemetry.update();
-            turnLeft(0.3, 135);
-
-            // Move forward 21 cm
-            telemetry.addData("Step", "Driving forward 21 cm");
-            telemetry.update();
-            driveForward(0.5, 21);
-
-            // Draw first emoji again
-            telemetry.addData("Step", "Drawing first emoji again: :) ");
-            telemetry.update();
-            sleep(2000);
+            driveBackward(0.5, 10);
 
             // Complete
             telemetry.addData("Status", "Autonomous mode complete");
@@ -99,32 +114,70 @@ public class BasketAuto extends LinearOpMode {
         stopDriving();
     }
 
-    // Move forward
-    private void driveForward(double speed, long duration) throws InterruptedException {
-        drive(speed, speed, speed, speed, duration);
+    // Strafe right
+    private void strafeRight(double speed, double distance) throws InterruptedException {
+        double correctedDistance = distance * distanceCorrectionFactor;
+        double time = correctedDistance / 50 * 1000; // Assume speed of 50 cm/s, calculate time
+        drive(speed, -speed, -speed, speed, (long) time);
     }
 
-    // Move backward
-    private void driveBackward(double speed, long duration) throws InterruptedException {
-        drive(-speed, -speed, -speed, -speed, duration);
+    // Strafe left
+    private void strafeLeft(double speed, double distance) throws InterruptedException {
+        double correctedDistance = distance * distanceCorrectionFactor;
+        double time = correctedDistance / 50 * 1000; // Assume speed of 50 cm/s, calculate time
+        drive(-speed, speed, speed, -speed, (long) time);
+    }
+
+    // Drive forward
+    private void driveForward(double speed, double distance) throws InterruptedException {
+        double correctedDistance = distance * distanceCorrectionFactor;
+        double time = correctedDistance / 50 * 1000; // Assume speed of 50 cm/s, calculate time
+        drive(speed, speed, speed, speed, (long) time);
+    }
+
+    // Drive backward
+    private void driveBackward(double speed, double distance) throws InterruptedException {
+        double correctedDistance = distance * distanceCorrectionFactor;
+        double time = correctedDistance / 50 * 1000; // Assume speed of 50 cm/s, calculate time
+        drive(-speed, -speed, -speed, -speed, (long) time);
     }
 
     // Turn left
     private void turnLeft(double speed, double angle) throws InterruptedException {
-        double time = angle / 90 * 1000; // Assume 90 degrees/s speed, calculate time
+        double correctedAngle = angle * angleCorrectionFactor;
+        double time = correctedAngle / 90 * 1000; // Assume speed of 90 degrees/s, calculate time
         drive(-speed, speed, -speed, speed, (long) time);
     }
 
     // Turn right
     private void turnRight(double speed, double angle) throws InterruptedException {
-        double time = angle / 90 * 1000; // Assume 90 degrees/s speed, calculate time
+        double correctedAngle = angle * angleCorrectionFactor;
+        double time = correctedAngle / 90 * 1000; // Assume speed of 90 degrees/s, calculate time
         drive(speed, -speed, speed, -speed, (long) time);
     }
 
-    // Strafe sideways
-    private void driveStrafe(double speed, double distance) throws InterruptedException {
-        double time = distance / 50 * 1000; // Assume 50 cm/s speed, calculate time
-        drive(speed, -speed, -speed, speed, (long) time);
+    // Control linear slide
+    private void moveLinear(double speed, long duration) throws InterruptedException {
+        linearLeft.setPower(speed);
+        linearRight.setPower(speed);
+        sleep(duration);
+        stopLinear();
+    }
+
+    // Stop linear slide
+    private void stopLinear() {
+        linearLeft.setPower(0);
+        linearRight.setPower(0);
+    }
+
+    // Control claw servo motor
+    private void moveClaw(double position) {
+        clawServo.setPosition(position);
+    }
+
+    // Control claw arm servo motor
+    private void moveClawArm(double position) {
+        clawArmServo.setPosition(position);
     }
 
     // Stop all motors

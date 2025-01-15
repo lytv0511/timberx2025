@@ -59,7 +59,6 @@ import java.util.List;
 
 @Config
 public final class  MecanumDrive {
-    private DcMotorEx linearLeft1;
 
     public static class Params {
         // IMU orientation
@@ -115,8 +114,6 @@ public final class  MecanumDrive {
             new ProfileAccelConstraint(PARAMS.minProfileAccel, PARAMS.maxProfileAccel);
 
     public final DcMotorEx leftFront, leftBack, rightBack, rightFront, linearLeft, linearRight;
-
-    //public final servo servoOne, servoTwo, servoThree;
 
     public final Servo clawServo, clawArmServo;
 
@@ -549,9 +546,10 @@ public final class  MecanumDrive {
 
     // clawServo function
     public void clawClamp(double clawGearPosition, int mode) {
-        telemetry.addData("Claw position", clawServo.getPosition());
-        telemetry.update();
         double clawPos = clawServo.getPosition();
+        String clawPosString = Double.toString(clawPos);
+        telemetry.addData("Claw position", clawPosString);
+        telemetry.update();
         if (mode == 0) {
             clawServo.setPosition(clawPos + clawGearPosition);
         } else if (mode == 1) {
@@ -561,9 +559,10 @@ public final class  MecanumDrive {
 
     // clawArmServo function
     public void clawAngle(double angle) {
-        telemetry.addData("clawArm position", clawArmServo.getPosition());
-        telemetry.update();
         double clawArmPos = clawArmServo.getPosition();
+        String clawArmPosString = Double.toString(clawArmPos);
+        telemetry.addData("clawArm position", clawArmPosString);
+        telemetry.update();
         clawArmServo.setPosition(clawArmPos + angle);
     }
 
